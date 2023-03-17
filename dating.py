@@ -5,13 +5,6 @@ import uuid
 import sys
 import os
 import pprint
-import argparse
-parser = argparse.ArgumentParser()
-parser.add_argument('--apikey', type=str,help='api-key')
-args = parser.parse_args()
-apikey=args.apikey
-
-
 
 class script():
     def __init__(self,actor,acname,before,content):
@@ -87,7 +80,7 @@ class ai_partner():
 
     def create_aip2(self,text,pdict):
         self.name = text.split('[name]')[1].split('[/name]')[0]
-        self.create_aip_by_kws(self,text,pdict)
+        self.create_aip_by_kws(text,pdict)
         return 0
 
 class aicrush():
@@ -578,7 +571,7 @@ class aicrush():
         self.now = self.now + 1 
         self.accinp = 0
         return self.pdict['welcome']
-
+    
 
     def random_aip(self):
         #随机aip名字
@@ -698,9 +691,10 @@ class aicrush():
         # period 'cfm_raip' 
         if input=='y':
             if self.aip.keyword is not None:
-                content = '确定选择'+self.aip.name +"。\n当前人物关键词：{}。\n确认请回复y，修改请回复k+关键词（如k傲娇，巨乳），不使用关键词请回复n".format(self.aip.keyword)
-                self.period = 'cfm_kw'
-                self.accinp = 1
+                content = '确定选择'+self.aip.name +"。\n当前人物关键词：{}。".format(self.aip.keyword)
+                self.keyword = '和关键词“{}”'.format(self.aip.keyword)
+                self.period = 'scene'
+                self.accinp = 0
                 return content
             else:
                 content = '确定选择'+self.aip.name +"。\n请选择人物关键词……"
@@ -728,9 +722,10 @@ class aicrush():
         else:
             self.accinp = 0
             try:
+                content = ''
                 self.aip = ai_partner(self.api_key)
                 self.aip.create_aip(input)
-                content = content + "你选择了：" + name + '\n'
+                content = content + "你设计了：" + self.aip.name + '\n'
                 content = content + "姓名："+self.aip.name + '\n'
                 content = content +self.aip.image + '\n'
                 content = content +self.aip.character + '\n'
@@ -752,16 +747,18 @@ class aicrush():
         else:
             self.accinp = 0
             try:
+                content = ''
                 self.aip = ai_partner(self.api_key)
-                self.aip.create_aip2(input)
-                content = content + "你选择了：" + name + '\n'
+                self.aip.create_aip2(input,self.pdict)
+                content = content + "你设计了：" + self.aip.name + '\n'
                 content = content + "姓名："+self.aip.name + '\n'
                 content = content +self.aip.image + '\n'
                 content = content +self.aip.character + '\n'
                 content = content +self.aip.sexpre + '\n'
                 content = content + "确定伴侣请输入y，取消请输入n。\n >"
                 self.period = 'cfm_laip' 
-            except:
+            except Exception as e:
+                print(e)
                 content = '请按照规则正确输入,返回请输入r'
             self.accinp = 1 
             return content
@@ -771,14 +768,15 @@ class aicrush():
         self.accinp = 0
         if input=='y':
             if self.aip.keyword is not None:
-                content = '确定选择'+self.aip.name +"。\n当前人物关键词：{}".format(self.aip.keyword)
+                content = '确定选择'+self.aip.name +"。\n当前人物关键词：{}。".format(self.aip.keyword)
+                self.keyword = '和关键词“{}”'.format(self.aip.keyword)
                 self.period = 'scene'
                 self.accinp = 0
                 return content
             else:
                 content = '确定选择'+self.aip.name +"。\n请选择人物关键词……"
                 self.period = 'get_kw'
-                self.accinp = 1
+                self.accinp = 0
                 return content
         elif input =='n':
             content = "返回。"
@@ -917,5 +915,10 @@ class aicrush():
             
 
 if __name__ == "__main__":
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--apikey', type=str,help='api-key')
+    args = parser.parse_args()
+    apikey=args.apikey
     aic = aicrush(apikey,'a')
     aic.cmdline_run()
