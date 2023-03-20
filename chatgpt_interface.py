@@ -1,6 +1,6 @@
 import openai
 
-def get_g3t_response(messages,api_key = "0",hh=0):
+def get_g3t_response(messages,api_key = "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",hh=0):
     try:
         openai.api_key = api_key
         response = openai.ChatCompletion.create(
@@ -22,13 +22,13 @@ def hybirdsplit(a):
     a = a.replace('【真实版回复】','真实版回复：')
     if a.count('：')==2:
         return a.split('：')[2]
+    elif a.count('：')==0:
+        print('not good!')
+        return a 
     else:
-        if a.count('：')<2:
-            file = 'error.log'
-            with open(file,'a',encoding='utf-8') as f:
-                f.write(a+'\n')
         b = a.split('真实')[1].split('：',1)[1]
-        return b 
+        return b
+        
 
 def keyword_fix(a):
     #关键词返回处理

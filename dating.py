@@ -1,11 +1,12 @@
 #coding=utf-8
 from chatgpt_interface import get_g3t_response,hybirdsplit,keyword_fix
 from params_helper import load_prompts,load_aips
+from text2img import txt2im
 import uuid
 import sys
 import os
 import pprint
-
+import re
 class script():
     def __init__(self,actor,acname,before,content):
         self.actor = actor  # ai user nar 
@@ -102,6 +103,7 @@ class aicrush():
         self.idxerror = 0
         self.keyword = ''
         self.init_prompt = ''
+        self.lang_inprove = 0
     def get_dicts(self):
         self.pdict,self.dcode0,self.dcode1,self.dcodesp,self.lcode0,self.lcode1,self.lcodesp = load_prompts()
         self.aipdict = load_aips()
@@ -110,6 +112,32 @@ class aicrush():
         self.scripts.append(ns)
         self.history.append('0')
         return len(self.scripts)-1,str(len(self.scripts)-1)+" "+ns.content
+
+    def lang_sexy(self,content):
+        # 开发版功能，提供更加sexy的对话
+        content =content.replace('「','“')
+        content =content.replace('」','”')
+        while content.count('"')!=0:
+            content = content.replace('"','“',count=1)
+            content = content.replace('"','”',count=1)
+        a=re.sub('\【.*?\】','',content)
+        conv = []
+        while a.count('”')!=0:
+            c = a.split('“',1)[1]
+            c = c.split('”',1)[0]
+            a = a.split('”',1)[1]
+            conv.append(c)
+        #print(conv,content)
+        for i in range(len(conv)):
+            messages=[
+                    {"role": "system", "content": ""},
+                    {'role': "user", "content":self.pdict['plangsexy'].replace('【c】',conv[i])}
+                    ]
+            tmp = get_g3t_response(messages,self.api_key).replace('\n', '')
+            #print(tmp)
+            content = content.replace(conv[i],tmp)
+        content =content.replace('❤️','❤')
+        return content 
 
     def get_history(self):
         # history = 上一个的总结+这次的对话
@@ -132,9 +160,15 @@ class aicrush():
                 s1 = s[:len(s)]
                 s2 = s[len(s)//2:]
                 s1.replace('.','。').replace(')','）').replace(']','】')
-                s11 = s1.split('。',1)[1]
-                s12 = s1.split('】',1)[1]
-                s13 = s1.split('）',1)[1]
+                s11 = s1
+                s12 = s1 
+                s13 = s1 
+                try:
+                    s11 = s1.split('。',1)[1]
+                    s12 = s1.split('】',1)[1]
+                    s13 = s1.split('）',1)[1]
+                except:
+                    pass
                 s1n = min([s11,s12,s13], key=len)
                 tmp = self.history[self.now] + s1n+s2
             else:
@@ -190,6 +224,8 @@ class aicrush():
             {'role': "user", "content":self.pdict['phello'].replace('【initprompt】',self.init_prompt).replace("【name】",self.aip.name).replace("【sexpre】",self.aip.sexpre.replace('\n',"，")).replace("【history】",self.get_history()).replace('【keywords】',self.keyword)}
             ]
         tmp = hybirdsplit(get_g3t_response(messages,self.api_key))
+        if self.lang_inprove:
+            tmp = self.lang_sexy(tmp)
         new_sc = script('ai',self.aip.name,self.now,tmp)
         self.now,content = self.add_script(new_sc)
         self.accinp = 0
@@ -400,12 +436,18 @@ class aicrush():
             {'role': "user", "content":self.pdict['paipact'].replace("【name】",self.aip.name).replace("【history】",self.get_history()).replace('【keywords】',self.keyword)}
             ]
         tmp = hybirdsplit(get_g3t_response(messages,self.api_key))
+        if self.lang_inprove:
+            tmp = self.lang_sexy(tmp)
         new_sc = script('ai',self.aip.name,self.now,tmp)
         self.now,content = self.add_script(new_sc)
         self.accinp = 0
         return content
 
-
+    def theend(self):
+        # period = 'end'
+        self.period = 'end'
+        self.accinp = 1
+        return "故事结束啦，重新开始请回复/start"
 
     def endding(self):
         #period 10 
@@ -415,29 +457,40 @@ class aicrush():
             {'role': "user", "content":self.pdict['pendding'].replace("【history】",self.get_history())}
             ]
         tmp = hybirdsplit(get_g3t_response(messages,self.api_key))
-        new_sc,content = script('nar',"结尾",self.now,tmp)
-        self.now = self.add_script(new_sc)
+        new_sc = script('nar',"结尾",self.now,tmp)
+        self.now,content = self.add_script(new_sc)
+        
         self.accinp = 0
+        self.period=11
         return content
 
     def save(self):
+        self.period = 0 
         self.mainline = []
         a = self.now
         while(a>=0):
             self.mainline.append(a)
             a = self.scripts[a].before
         self.mainline.reverse()
-
-        filename = uuid.uuid4().hex
+        print(self.mainline)
+        filename = self.aip.name +'-'+ str(self.uid) +'-'+ str(uuid.uuid4().hex)[0:8]
         f = open(str(filename)+'.txt', 'w',encoding= 'utf-8')
-        f.write("姓名："+self.aip.name+'\n')
-        f.write(self.aip.image+'\n')
-        f.write(self.aip.character+'\n')
-        f.write(self.aip.sexpre+'\n')
+        f.write(self.aip.name +'-'+ str(self.uid) +'-'+ uuid.uuid4().hex[0:8] + '\n')
+        f.write("> 姓名："+self.aip.name+'\n')
+        f.write('> '+self.aip.image+'\n')
+        f.write('> '+self.aip.character+'\n')
+        f.write('> '+self.aip.sexpre+'\n')
+        f.write('——————————————————————\n')
         for i in self.mainline:
-            f.write(self.scripts[i].content+'\n')
+            i1 , i2= self.scripts[i].content.split('：',1)
+            print(i1,i2)
+            f.write('**{}** ： {}\n'.format(i1,i2))
+            f.write('——————————————————————\n')
         f.close()
-        return "saved"
+        txt2im(filename+'.txt',filename+'.png')
+        self.period = 'end'
+        self.accinp = 1
+        return "image {}.png".format(filename)
 
 
     def scheduler(self,input):
@@ -500,18 +553,29 @@ class aicrush():
                     return self.auto_nar() 
                 if self.period == 10:
                     return self.endding()
+                if self.period == 11:
+                    return self.save()
+                if self.period =='end':
+                    return self.theend()
             if self.scripts[a].actor == 'user':
                 return self.aip_action()
         
         except Exception as e:
             print(e)
             self.idxerror = self.idxerror + 1 
+            if self.idxerror > 30:
+                self.period ='end'
+                self.accinp = 1 
+                return '似乎挂了，/start重开吧'
+
+
+            
            
     def find_aip(self):
         # period 0 
         self.period = 'start' 
         self.accinp = 1
-        return '请选择您的ai伴侣：\n r随机生成伴侣，l+数字在伴侣表中选择，ll查看ai伴侣表，k根据关键词生成ai伴侣，i手动输入ai伴侣。 \n >'
+        return '请选择您的ai伴侣：\n r随机生成伴侣，l+数字在伴侣表中选择，ll查看ai伴侣表，k根据关键词生成ai伴侣。 \n > 开发版功能：输入d1开启开发版对话增强功能（不稳定），当前：{}'.format(self.lang_inprove)
     
     def choice_ai_partner(self,input):
         # period 'start'  
@@ -551,7 +615,7 @@ class aicrush():
         elif input == 'k':
             self.accinp = 0
             content = '请按照以下格式输入你喜爱的ai设定：\n'
-            content = content + '[name]姓名[/name][imagekw]外貌关键词[/imagekw][characterkw]性格关键词[/characterkw][sexprekw]性癖关键词[/sexprekw][keyword]人物关键词[/keyword]'  +"\n输入r返回"
+            content = content + '[name]姓名[/name][imagekw]外貌关键词[/imagekw][characterkw]性格关键词[/characterkw][sexprekw]性癖关键词[/sexprekw][keyword]人物关键词[/keyword]'+'\n例：[name]小静[/name][imagekw]眼镜，巨乳，黑丝[/imagekw][characterkw]冷静，温柔，严肃，女王[/characterkw][sexprekw]调教男人，施虐癖，爱控制男人高潮，巨乳[/sexprekw][keyword]女王，巨乳，施虐癖[/keyword]'  +"\n输入r返回"
             self.period = "usr_aip_kw" 
             self.accinp = 1
             return content
@@ -562,6 +626,11 @@ class aicrush():
             self.period = "usr_aip_full" 
             self.accinp = 1
             return content
+        elif input == 'd1':
+            self.lang_inprove = 1
+            self.accinp = 0
+            self.period = 0
+            return "开发版对话增强已开启。"
         else:
             self.accinp = 1
             return "请输入正确的代码！"
@@ -912,7 +981,6 @@ class aicrush():
                     sys.exit()
                 except Exception as e:
                     print('error:',e)
-            
 
 if __name__ == "__main__":
     import argparse
